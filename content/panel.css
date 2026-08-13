@@ -1,0 +1,495 @@
+/* Floating panel + in-viewer button.
+   Variables live on #sf-dl-root because `all: initial` drops :root inheritance.
+   Light is the default; [data-theme="dark"] swaps the palette. */
+#sf-dl-root {
+  all: initial;
+  --bg: #ffffff;
+  --bg2: #f8fafc;
+  --header: #f8fafc;
+  --card: #f8fafc;
+  --line: #d5dbe6;
+  --text: #1a2332;
+  --muted: #5c6778;
+  --blue: #2563eb;
+  --cyan: #0891b2;
+  --ok: #15803d;
+  --warn: #b45309;
+  --err: #b91c1c;
+  --log-bg: #f8fafc;
+  --log-fg: #334155;
+  --track: #e2e8f0;
+  --hover: #e8eef5;
+  --link: #0369a1;
+  --status-bg: #f8fafc;
+  --panel-shadow: 0 16px 48px rgba(15, 23, 42, 0.12);
+  --fab-shadow: 0 8px 24px rgba(37, 99, 235, 0.35);
+  position: fixed;
+  z-index: 2147483646;
+  right: 16px;
+  bottom: 16px;
+  font-family: "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
+  font-size: 13px;
+  color: var(--text);
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+#sf-dl-root[data-theme="dark"] {
+  --bg: #111827;
+  --bg2: #0b1220;
+  --header: #0b1220;
+  --card: #1a2332;
+  --line: #2a3548;
+  --text: #e8eef7;
+  --muted: #94a3b8;
+  --blue: #3b82f6;
+  --cyan: #22d3ee;
+  --ok: #4ade80;
+  --warn: #fbbf24;
+  --err: #f87171;
+  --log-bg: #070b14;
+  --log-fg: #a5b4fc;
+  --track: #0b1220;
+  --hover: #1e293b;
+  --link: #7dd3fc;
+  --status-bg: rgba(11, 18, 32, 0.55);
+  --panel-shadow: 0 16px 48px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(59, 130, 246, 0.08);
+  --fab-shadow: 0 8px 24px rgba(37, 99, 235, 0.45);
+}
+
+#sf-dl-root * {
+  box-sizing: border-box;
+  font-family: inherit;
+}
+
+#sf-dl-panel {
+  pointer-events: auto;
+  width: 360px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  box-shadow: var(--panel-shadow);
+  overflow: hidden;
+  backdrop-filter: blur(10px);
+}
+
+#sf-dl-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 11px 12px;
+  background: var(--header);
+  border-bottom: 1px solid var(--line);
+  font-weight: 650;
+  letter-spacing: 0.15px;
+  color: var(--text);
+}
+
+#sf-dl-header .sf-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+#sf-dl-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--cyan);
+  box-shadow: 0 0 10px var(--cyan);
+  flex-shrink: 0;
+}
+
+#sf-dl-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+#sf-dl-root .sf-lang {
+  display: inline-flex;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--bg);
+  pointer-events: auto;
+}
+
+#sf-dl-root .sf-lang-btn {
+  all: unset;
+  cursor: pointer;
+  color: var(--muted);
+  font: 600 10px/1 system-ui, sans-serif;
+  padding: 5px 7px;
+  letter-spacing: 0.3px;
+}
+
+#sf-dl-root .sf-lang-btn.active {
+  background: var(--blue);
+  color: #fff;
+}
+
+#sf-dl-root .sf-lang-btn:not(.active):hover {
+  color: var(--text);
+  background: var(--hover);
+}
+
+#sf-dl-close {
+  all: unset;
+  cursor: pointer;
+  color: var(--muted);
+  padding: 3px 7px;
+  border-radius: 7px;
+  font-size: 13px;
+  line-height: 1;
+}
+#sf-dl-close:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+
+#sf-dl-body {
+  padding: 13px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+#sf-dl-ready {
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--ok);
+}
+#sf-dl-root.sf-dev #sf-dl-ready {
+  display: none;
+}
+
+#sf-dl-meta {
+  color: var(--muted);
+  line-height: 1.35;
+  font-size: 12px;
+}
+
+#sf-dl-root:not(.sf-dev) [data-dev-only] {
+  display: none !important;
+}
+
+.sf-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 8px 10px 0;
+  border-bottom: 1px solid var(--line);
+  background: var(--header);
+}
+.sf-tab {
+  all: unset;
+  flex: 1;
+  text-align: center;
+  cursor: pointer;
+  color: var(--muted);
+  font: 650 12px/1 system-ui, sans-serif;
+  padding: 9px 6px;
+  border-radius: 8px 8px 0 0;
+}
+.sf-tab:hover {
+  color: var(--text);
+  background: var(--hover);
+}
+.sf-tab.active {
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-bottom-color: var(--bg);
+  margin-bottom: -1px;
+}
+.sf-pane {
+  display: none;
+  flex-direction: column;
+  gap: 10px;
+}
+.sf-pane.active {
+  display: flex;
+}
+#sf-dl-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+#sf-dl-progress[hidden] {
+  display: none !important;
+}
+.sf-progress-track {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--track);
+  border: 1px solid var(--line);
+  overflow: hidden;
+}
+#sf-dl-bar {
+  display: block;
+  height: 100%;
+  width: 0;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--blue), var(--cyan));
+  transition: width 0.25s ease;
+}
+#sf-dl-pct {
+  font-size: 11px;
+  color: var(--muted);
+}
+.sf-settings-title {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+.sf-setting {
+  padding: 10px 12px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  color: var(--text);
+}
+.sf-setting label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-weight: 650;
+  font-size: 13px;
+}
+.sf-setting input {
+  accent-color: var(--blue);
+}
+.sf-set-hint {
+  margin: 6px 0 0;
+  padding-left: 22px;
+  color: var(--muted);
+  font-size: 11.5px;
+  line-height: 1.4;
+}
+.sf-gh-box {
+  padding: 10px 12px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+.sf-gh-box a {
+  color: var(--link);
+  font-weight: 650;
+  font-size: 13px;
+  text-decoration: none;
+}
+.sf-gh-box a:hover {
+  text-decoration: underline;
+}
+.sf-gh-url {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 11px;
+  word-break: break-all;
+}
+.sf-set-cap {
+  display: block;
+  font-size: 12px;
+  font-weight: 650;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+#sf-dl-settings-flash {
+  display: none;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-weight: 650;
+  font-size: 13px;
+  line-height: 1.35;
+}
+#sf-dl-settings-flash.show {
+  display: block;
+}
+#sf-dl-settings-flash.ok {
+  background: #dcfce7;
+  color: #166534;
+  border: 1px solid #86efac;
+}
+#sf-dl-settings-flash.dirty {
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fcd34d;
+}
+#sf-dl-root[data-theme="dark"] #sf-dl-settings-flash.ok {
+  background: rgba(22, 101, 52, 0.28);
+  color: #86efac;
+  border-color: rgba(134, 239, 172, 0.35);
+}
+#sf-dl-root[data-theme="dark"] #sf-dl-settings-flash.dirty {
+  background: rgba(146, 64, 14, 0.28);
+  color: #fde68a;
+  border-color: rgba(252, 211, 77, 0.35);
+}
+
+#sf-dl-captures {
+  font-size: 11.5px;
+  line-height: 1.35;
+  padding: 6px 9px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--status-bg);
+  color: var(--muted);
+}
+#sf-dl-captures[data-state="ok"] {
+  color: var(--cyan);
+  border-color: color-mix(in srgb, var(--cyan) 35%, var(--line));
+}
+#sf-dl-captures[data-state="none"] {
+  color: var(--warn);
+}
+#sf-dl-captures[data-state="waiting"] {
+  color: var(--muted);
+}
+
+#sf-dl-status {
+  min-height: 44px;
+  color: var(--text);
+  font-size: 12px;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: var(--status-bg);
+  border: 1px dashed var(--line);
+  border-radius: 9px;
+  padding: 8px 10px;
+}
+
+#sf-dl-btn,
+#sf-dl-save-settings {
+  all: unset;
+  display: block;
+  text-align: center;
+  cursor: pointer;
+  background: linear-gradient(180deg, #3b82f6 0%, #2563eb 100%);
+  color: #fff;
+  font-weight: 650;
+  padding: 11px 12px;
+  border-radius: 10px;
+  box-shadow: 0 6px 16px rgba(37, 99, 235, 0.35);
+  transition: background 0.15s ease, transform 0.12s ease;
+}
+#sf-dl-btn:hover:not(:disabled),
+#sf-dl-save-settings:hover:not(:disabled) {
+  background: linear-gradient(180deg, #60a5fa 0%, #3b82f6 100%);
+  transform: translateY(-1px);
+}
+#sf-dl-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+#sf-dl-bulk,
+.sf-secondary {
+  all: unset;
+  display: block;
+  text-align: center;
+  cursor: pointer;
+  background: var(--card);
+  color: var(--text);
+  font-weight: 600;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+#sf-dl-bulk:hover,
+.sf-secondary:hover {
+  background: var(--hover);
+  border-color: var(--blue);
+}
+
+#sf-dl-root .sf-devrow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 11.5px;
+  cursor: pointer;
+  user-select: none;
+}
+#sf-dl-root .sf-devrow input {
+  accent-color: var(--blue);
+}
+
+#sf-dl-devpanel {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--log-bg);
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  overflow: hidden;
+}
+/* ID-level display:flex overrides UA [hidden]{display:none} — force hide */
+#sf-dl-devpanel[hidden] {
+  display: none !important;
+}
+
+#sf-dl-devactions {
+  display: flex;
+  gap: 6px;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--line);
+  background: var(--header);
+}
+
+#sf-dl-root .sf-devbtn {
+  all: unset;
+  cursor: pointer;
+  pointer-events: auto;
+  font: 600 11px/1 system-ui, sans-serif;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 6px 10px;
+}
+#sf-dl-root .sf-devbtn:hover {
+  border-color: var(--blue);
+  background: var(--hover);
+}
+
+#sf-dl-devlog {
+  margin: 0;
+  padding: 8px;
+  max-height: 160px;
+  overflow: auto;
+  font: 10px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  color: var(--log-fg);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* Floating action button (opens panel) */
+#sf-dl-fab {
+  all: unset;
+  pointer-events: auto;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  font-size: 18px;
+  color: #fff;
+  background: linear-gradient(135deg, #3b82f6, #22d3ee);
+  box-shadow: var(--fab-shadow);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+#sf-dl-fab:hover {
+  transform: translateY(-1px) scale(1.04);
+}

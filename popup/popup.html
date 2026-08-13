@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+  <head>
+    <meta charset="utf-8" />
+    <title>Sketchfab Public Downloader</title>
+    <style>
+      :root,
+      [data-theme="light"] {
+        color-scheme: light;
+        --bg: #eef2f7;
+        --bg2: #ffffff;
+        --card: #ffffff;
+        --line: #d5dbe6;
+        --text: #1a2332;
+        --muted: #5c6778;
+        --blue: #2563eb;
+        --cyan: #0891b2;
+        --ok: #15803d;
+        --warn: #b45309;
+        --err: #b91c1c;
+        --log-bg: #f8fafc;
+        --log-fg: #334155;
+        --header: #ffffff;
+        --track: #e2e8f0;
+        --hover: #e8eef5;
+        --link: #0369a1;
+        --status-bg: #f1f5f9;
+        --meta-fg: #334155;
+        --btn-soft: #eef2f7;
+      }
+      [data-theme="dark"] {
+        color-scheme: dark;
+        --bg: #0b1220;
+        --bg2: #111827;
+        --card: #1a2332;
+        --line: #2a3548;
+        --text: #e8eef7;
+        --muted: #94a3b8;
+        --blue: #3b82f6;
+        --cyan: #22d3ee;
+        --ok: #4ade80;
+        --warn: #fbbf24;
+        --err: #f87171;
+        --log-bg: #070b14;
+        --log-fg: #a5b4fc;
+        --header: #0f172a;
+        --track: #0b1220;
+        --hover: #1e293b;
+        --link: #7dd3fc;
+        --status-bg: rgba(15, 23, 42, 0.55);
+        --meta-fg: #cbd5e1;
+        --btn-soft: #1e293b;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        font: 13px/1.45 "Segoe UI", system-ui, -apple-system, sans-serif;
+        color: var(--text);
+        background: radial-gradient(
+            400px 180px at 100% 0%,
+            rgba(59, 130, 246, 0.18),
+            transparent
+          ),
+          radial-gradient(
+            300px 140px at 0% 100%,
+            rgba(34, 211, 238, 0.08),
+            transparent
+          ),
+          var(--bg);
+        width: 360px;
+      }
+      header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 12px 14px;
+        background: var(--header);
+        border-bottom: 1px solid var(--line);
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        font-weight: 700;
+        letter-spacing: 0.2px;
+        font-size: 13px;
+      }
+      .brand-ico {
+        width: 22px;
+        height: 22px;
+        border-radius: 7px;
+        background: linear-gradient(135deg, var(--blue), var(--cyan));
+        display: grid;
+        place-items: center;
+        font-size: 12px;
+        box-shadow: 0 0 12px rgba(59, 130, 246, 0.45);
+      }
+      .sf-lang {
+        display: inline-flex;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        overflow: hidden;
+        background: var(--bg2);
+      }
+      .sf-lang-btn {
+        border: 0;
+        background: transparent;
+        color: var(--muted);
+        font: 600 11px/1 system-ui, sans-serif;
+        padding: 6px 9px;
+        cursor: pointer;
+        letter-spacing: 0.4px;
+      }
+      .sf-lang-btn.active {
+        background: var(--blue);
+        color: #fff;
+      }
+      .sf-lang-btn:not(.active):hover {
+        color: var(--text);
+        background: var(--hover);
+      }
+      main {
+        padding: 14px;
+        display: flex;
+        flex-direction: column;
+        gap: 11px;
+      }
+      .tagline {
+        margin: 0;
+        color: var(--muted);
+        font-size: 12px;
+      }
+      .tagline .dot {
+        color: var(--ok);
+      }
+      #meta {
+        display: none;
+        font-size: 12px;
+        color: var(--meta-fg);
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 10px 12px;
+        word-break: break-all;
+        line-height: 1.4;
+      }
+      body.dev #meta {
+        display: block;
+      }
+      #ready {
+        font-size: 13px;
+        color: var(--ok);
+        font-weight: 650;
+      }
+      body.dev #ready {
+        display: none;
+      }
+      #status {
+        display: none;
+        min-height: 2.8em;
+        font-size: 12px;
+        color: var(--meta-fg);
+        white-space: pre-wrap;
+        background: var(--status-bg);
+        border-radius: 8px;
+        padding: 8px 10px;
+        border: 1px dashed var(--line);
+      }
+      body.dev #status {
+        display: block;
+      }
+      #status.ok {
+        color: var(--ok);
+        border-color: rgba(74, 222, 128, 0.35);
+      }
+      #status.warn {
+        color: var(--warn);
+        border-color: rgba(251, 191, 36, 0.35);
+      }
+      button.primary,
+      button.secondary,
+      button.tiny {
+        cursor: pointer;
+        border: 0;
+        border-radius: 10px;
+        font: inherit;
+        font-weight: 650;
+        transition: transform 0.12s ease, background 0.12s ease,
+          border-color 0.12s ease;
+      }
+      button.primary,
+      button.secondary {
+        padding: 11px 12px;
+        width: 100%;
+      }
+      button.primary {
+        background: linear-gradient(180deg, #3b82f6 0%, #2563eb 100%);
+        color: #fff;
+        box-shadow: 0 6px 16px rgba(37, 99, 235, 0.35);
+      }
+      button.primary:hover:not(:disabled) {
+        background: linear-gradient(180deg, #60a5fa 0%, #3b82f6 100%);
+        transform: translateY(-1px);
+      }
+      button.primary:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        box-shadow: none;
+      }
+      button.secondary {
+        background: var(--card);
+        color: var(--text);
+        border: 1px solid var(--line);
+      }
+      button.secondary:hover {
+        border-color: var(--blue);
+        background: var(--hover);
+      }
+      button.tiny {
+        padding: 5px 8px;
+        font-size: 11px;
+        border-radius: 7px;
+        background: var(--btn-soft);
+        color: var(--muted);
+        border: 1px solid var(--line);
+      }
+      button.tiny:hover {
+        color: var(--text);
+        border-color: #64748b;
+      }
+      .row {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .hint {
+        margin: 0;
+        color: var(--muted);
+        font-size: 11.5px;
+        line-height: 1.4;
+      }
+      .dev-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        padding: 8px 10px;
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        font-size: 12px;
+      }
+      .dev-row label {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        cursor: pointer;
+        user-select: none;
+        color: var(--muted);
+      }
+      .dev-row input {
+        accent-color: var(--blue);
+      }
+      .progress {
+        display: none;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .progress.show {
+        display: flex;
+      }
+      .progress-track {
+        height: 8px;
+        border-radius: 999px;
+        background: var(--track);
+        border: 1px solid var(--line);
+        overflow: hidden;
+      }
+      .progress-bar {
+        display: block;
+        height: 100%;
+        width: 0;
+        border-radius: 999px;
+        background: linear-gradient(90deg, var(--blue), var(--cyan));
+        transition: width 0.25s ease;
+      }
+      .progress-label {
+        font-size: 11px;
+        color: var(--muted);
+      }
+      #dev-panel {
+        display: none;
+        flex-direction: column;
+        gap: 6px;
+      }
+      #dev-panel.show {
+        display: flex;
+      }
+      .dev-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        color: var(--muted);
+        font-size: 11px;
+        font-weight: 650;
+      }
+      .dev-actions {
+        display: flex;
+        gap: 6px;
+      }
+      #dev-log {
+        margin: 0;
+        max-height: 180px;
+        overflow: auto;
+        font: 10.5px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        color: var(--log-fg);
+        background: var(--log-bg);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 8px;
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+      footer {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding-top: 2px;
+      }
+      a {
+        color: var(--link);
+        text-decoration: none;
+        font-size: 12px;
+      }
+      a:hover {
+        text-decoration: underline;
+      }
+      .tabs {
+        display: flex;
+        gap: 4px;
+        padding: 8px 14px 0;
+        border-bottom: 1px solid var(--line);
+        background: var(--header);
+      }
+      .tab {
+        flex: 1;
+        border: 0;
+        border-radius: 8px 8px 0 0;
+        background: transparent;
+        color: var(--muted);
+        font: 650 12px/1 "Segoe UI", system-ui, sans-serif;
+        padding: 9px 8px;
+        cursor: pointer;
+      }
+      .tab:hover {
+        color: var(--text);
+        background: var(--hover);
+      }
+      .tab.active {
+        color: var(--text);
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-bottom-color: var(--card);
+        margin-bottom: -1px;
+      }
+      .pane {
+        display: none;
+        flex-direction: column;
+        gap: 11px;
+      }
+      .pane.active {
+        display: flex;
+      }
+      .setting {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        padding: 10px 12px;
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+      }
+      .setting label {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        cursor: pointer;
+        user-select: none;
+        font-size: 13px;
+        font-weight: 650;
+      }
+      .setting input {
+        accent-color: var(--blue);
+      }
+      .setting .hint {
+        margin: 0;
+        padding-left: 22px;
+      }
+      .set-cap {
+        display: block;
+        font-size: 12px;
+        font-weight: 650;
+        color: var(--muted);
+        margin-bottom: 6px;
+      }
+      .settings-flash {
+        display: none;
+        padding: 10px 12px;
+        border-radius: 10px;
+        font-weight: 650;
+        font-size: 13px;
+        line-height: 1.35;
+      }
+      .settings-flash.show {
+        display: block;
+      }
+      .settings-flash.ok {
+        background: #dcfce7;
+        color: #166534;
+        border: 1px solid #86efac;
+      }
+      .settings-flash.dirty {
+        background: #fef3c7;
+        color: #92400e;
+        border: 1px solid #fcd34d;
+      }
+      [data-theme="dark"] .settings-flash.ok {
+        background: rgba(22, 101, 52, 0.28);
+        color: #86efac;
+        border-color: rgba(134, 239, 172, 0.35);
+      }
+      [data-theme="dark"] .settings-flash.dirty {
+        background: rgba(146, 64, 14, 0.28);
+        color: #fde68a;
+        border-color: rgba(252, 211, 77, 0.35);
+      }
+      .gh-box {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        padding: 10px 12px;
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+      }
+      .gh-box a {
+        font-weight: 650;
+        font-size: 13px;
+      }
+      .gh-url {
+        color: var(--muted);
+        font-size: 11px;
+        word-break: break-all;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="brand">
+        <span class="brand-ico">⬇</span>
+        <span id="title">Sketchfab Public Downloader</span>
+      </div>
+    </header>
+    <nav class="tabs" role="tablist">
+      <button id="tab-dl" class="tab active" type="button" role="tab" aria-selected="true">
+        Download
+      </button>
+      <button id="tab-set" class="tab" type="button" role="tab" aria-selected="false">
+        Settings
+      </button>
+    </nav>
+    <main>
+      <section id="pane-dl" class="pane active">
+        <p class="tagline" id="tagline">
+          <span class="dot">●</span> No account · Auto keys · glTF (GLB)
+        </p>
+        <div id="ready">Ready to download</div>
+        <div id="meta">Checking current tab…</div>
+        <div id="status"></div>
+        <div id="progress" class="progress">
+          <div class="progress-track"><i id="progress-bar" class="progress-bar"></i></div>
+          <span id="progress-label" class="progress-label">0%</span>
+        </div>
+        <div class="row">
+          <button id="btn-dl" class="primary" type="button" disabled>
+            Download this model
+          </button>
+          <button id="btn-bulk" class="secondary" type="button">
+            Bulk download page…
+          </button>
+        </div>
+        <div id="dev-panel">
+          <div class="dev-head">
+            <span id="dev-log-title">Download log</span>
+            <div class="dev-actions">
+              <button id="btn-copy-log" class="tiny" type="button">Copy log</button>
+              <button id="btn-save-log" class="tiny" type="button">Save log</button>
+              <button id="btn-clear-log" class="tiny" type="button">Clear</button>
+            </div>
+          </div>
+          <pre id="dev-log"></pre>
+        </div>
+        <p class="hint" id="hint"></p>
+      </section>
+      <section id="pane-set" class="pane">
+        <p class="tagline" id="settings-title">Settings</p>
+        <div class="setting">
+          <label>
+            <input id="tex-toggle" type="checkbox" />
+            <span id="tex-label">Download textures</span>
+          </label>
+          <p class="hint" id="tex-hint"></p>
+        </div>
+        <div class="setting">
+          <label>
+            <input id="dev-toggle" type="checkbox" />
+            <span id="dev-label">Dev mode</span>
+          </label>
+          <p class="hint" id="dev-hint"></p>
+        </div>
+        <div class="setting">
+          <span id="theme-label" class="set-cap">Theme</span>
+          <div id="theme-switch" class="sf-lang"></div>
+        </div>
+        <div class="setting">
+          <span id="lang-label" class="set-cap">Language</span>
+          <div id="lang-switch"></div>
+        </div>
+        <button id="btn-save-settings" class="primary" type="button">
+          Apply settings
+        </button>
+        <div id="settings-flash" class="settings-flash" hidden></div>
+        <p class="hint" id="settings-save-hint"></p>
+        <div class="gh-box">
+          <a
+            id="gh-link-settings"
+            href="https://github.com/seryi882/sketchfab-downloader-extension"
+            target="_blank"
+            rel="noreferrer"
+            >Project on GitHub</a
+          >
+          <span class="gh-url">github.com/seryi882/sketchfab-downloader-extension</span>
+        </div>
+      </section>
+      <footer>
+        <a
+          id="gh-link"
+          href="https://github.com/seryi882/sketchfab-downloader-extension"
+          target="_blank"
+          rel="noreferrer"
+          >GitHub</a
+        >
+      </footer>
+    </main>
+    <script type="module" src="popup.js"></script>
+  </body>
+</html>

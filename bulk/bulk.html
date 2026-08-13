@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Sketchfab Bulk Download</title>
+    <link rel="stylesheet" href="bulk.css" />
+  </head>
+  <body>
+    <div class="wrap">
+      <header>
+        <div class="header-main">
+          <div class="brand-row">
+            <span class="brand-ico">⬇</span>
+            <h1 id="title">Sketchfab Bulk Download</h1>
+          </div>
+          <p class="sub" id="sub">
+            Paste many public model links. Each model is downloaded as a glTF
+            (GLB) ZIP. No account / API key. Keys update automatically.
+          </p>
+        </div>
+        <div class="header-actions">
+          <div id="lang-switch"></div>
+          <a
+            class="gh"
+            id="gh-link"
+            href="https://github.com/seryi882/sketchfab-downloader-extension"
+            target="_blank"
+            rel="noreferrer"
+            >GitHub</a
+          >
+        </div>
+      </header>
+
+      <section class="card">
+        <label for="links" id="label-links"
+          >Sketchfab URLs or UIDs (one per line)</label
+        >
+        <textarea
+          id="links"
+          rows="12"
+          placeholder="https://sketchfab.com/3d-models/…
+https://sketchfab.com/3d-models/…
+a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4"
+        ></textarea>
+        <div class="row">
+          <button id="btn-start" type="button">Download all</button>
+          <button id="btn-stop" type="button" class="secondary" disabled>
+            Stop after current
+          </button>
+          <span id="summary"></span>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2 id="queue-title">Queue</h2>
+        <div id="log" class="log"></div>
+      </section>
+    </div>
+    <script type="module" src="bulk.js"></script>
+  </body>
+</html>

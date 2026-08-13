@@ -1,0 +1,80 @@
+{
+  "manifest_version": 3,
+  "name": "Sketchfab Public Downloader",
+  "version": "1.0.0",
+  "description": "Sketchfab Public Downloader v1.0 — download public Sketchfab models as glTF (GLB) ZIP. EN/RU UI, settings, texture descramble.",
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "action": {
+    "default_title": "Sketchfab Public Downloader",
+    "default_popup": "popup/popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "permissions": ["downloads", "storage", "activeTab", "tabs", "offscreen"],
+  "host_permissions": [
+    "https://sketchfab.com/*",
+    "https://www.sketchfab.com/*",
+    "https://media.sketchfab.com/*",
+    "https://static.sketchfab.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self';"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://sketchfab.com/*",
+        "https://www.sketchfab.com/*"
+      ],
+      "js": ["content/viewer-inject.js"],
+      "run_at": "document_start",
+      "all_frames": true,
+      "world": "MAIN"
+    },
+    {
+      "matches": [
+        "https://sketchfab.com/*",
+        "https://www.sketchfab.com/*"
+      ],
+      "js": ["content/boot-hook.js"],
+      "run_at": "document_start",
+      "all_frames": true
+    },
+    {
+      "matches": [
+        "https://sketchfab.com/*",
+        "https://www.sketchfab.com/*"
+      ],
+      "js": ["content/panel.js"],
+      "css": ["content/panel.css"],
+      "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "lib/*.js",
+        "lib/wasm/decrypt.wasm",
+        "content/webgl-hook.js",
+        "content/viewer-inject.js",
+        "bulk/*",
+        "popup/*"
+      ],
+      "matches": [
+        "https://sketchfab.com/*",
+        "https://www.sketchfab.com/*"
+      ]
+    }
+  ]
+}
