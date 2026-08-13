@@ -148,4 +148,8 @@ ModelName-abcd1234.zip              # или ModelName-abcd1234-textures.zip
 
 ## Лицензия
 
-MIT — файл [LICENSE](LICENSE).
+[GNU General Public License v3.0](https://www.gnu.org/licenses/gpl-3.0.html) — файл [LICENSE](LICENSE).
+
+Copyright (C) 2026 seryi882
+
+Эта программа — свободное ПО: вы можете распространять и/или изменять её на условиях GNU GPL версии 3 (или, по вашему выбору, любой более поздней версии), опубликованной Фондом свободного программного обеспечения.
