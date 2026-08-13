@@ -121,7 +121,15 @@ btnStart.addEventListener("click", async () => {
         (msg) => {
           row.set(`[${i + 1}/${items.length}] ${msg}`, "run");
         },
-        { devMode, downloadTextures: prefs.textures === true }
+        {
+          devMode,
+          downloadTextures: prefs.textures === true,
+          packMode: prefs.packMode === "glb" ? "glb" : "full",
+          maxTextureEdge:
+            prefs.maxTextureEdge === 2048 || prefs.maxTextureEdge === 4096
+              ? prefs.maxTextureEdge
+              : 0,
+        }
       );
       if (!result.savedByBackground && result.zip) {
         await saveZip(result.zip, result.zipName);

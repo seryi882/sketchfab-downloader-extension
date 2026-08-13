@@ -11,9 +11,16 @@ import { readLastRunLog, setDevModeCache } from "../lib/devlog.js";
 import {
   loadPrefs,
   savePrefs,
-  prefsFromUi,
   applyTheme,
+  jobFlagsFromPrefs,
 } from "../lib/settings.js";
+import {
+  isJobDirty,
+  paintSettingsFlash as paintFlash,
+  formatJobStatus,
+  bindThemeSwitch,
+  bindPillSwitch,
+} from "../lib/ui-settings.js";
 import { progressFromMessage, saveTextFile } from "../lib/ui-progress.js";
 
 const meta = document.getElementById("meta");
@@ -53,17 +60,33 @@ const langLabel = document.getElementById("lang-label");
 const btnSaveSettings = document.getElementById("btn-save-settings");
 const settingsSaveHint = document.getElementById("settings-save-hint");
 const settingsFlash = document.getElementById("settings-flash");
+const jobStatusEl = document.getElementById("job-status");
+const packSwitch = document.getElementById("pack-switch");
+const packLabel = document.getElementById("pack-label");
+const packHint = document.getElementById("pack-hint");
+const resSwitch = document.getElementById("res-switch");
+const resLabel = document.getElementById("res-label");
+const resHint = document.getElementById("res-hint");
 
 let lang = "en";
 let switching = false;
-let devMode = false;
-let downloadTextures = false;
-let theme = "light";
-let pendingTheme = "light";
-let pendingLang = "en";
+let applied = {
+  textures: false,
+  theme: "light",
+  lang: "en",
+  devMode: false,
+  packMode: "full",
+  maxTextureEdge: 0,
+};
+let pendingTex = false;
+let pendingDev = false;
 let appliedOk = false;
+let paintTheme = () => {};
+let paintPack = () => {};
+let paintRes = () => {};
 let liveLog = [];
 let currentTab = "dl";
+let devMode = false;
 
 function setStatus(msg, cls) {
   statusEl.textContent = msg || "";
@@ -156,90 +179,81 @@ function applyStaticI18n() {
   if (langLabel) langLabel.textContent = t(lang, "language");
   if (btnSaveSettings) btnSaveSettings.textContent = t(lang, "saveSettings");
   if (settingsSaveHint) settingsSaveHint.textContent = t(lang, "settingsSaveHint");
-  renderThemeSwitch();
-  updateLangSwitch(langHost, pendingLang);
-  applyTheme(document.documentElement, theme);
-  applyTheme(document.body, theme);
+  if (packLabel) packLabel.textContent = t(lang, "optPack");
+  if (packHint) packHint.textContent = t(lang, "packHint");
+  if (resLabel) resLabel.textContent = t(lang, "optTexSize");
+  if (resHint) resHint.textContent = t(lang, "texSizeHint");
+  if (jobStatusEl) {
+    jobStatusEl.textContent = formatJobStatus(applied, t, lang);
+  }
+  updateLangSwitch(langHost, lang);
+  applyTheme(document.documentElement, applied.theme);
+  applyTheme(document.body, applied.theme);
+  paintTheme = bindThemeSwitch(themeSwitch, {
+    getTheme: () => applied.theme,
+    onPick: (code) => persistInstant({ theme: code }),
+    t,
+    lang,
+  });
+  paintPack = bindPillSwitch(packSwitch, {
+    items: [
+      { code: "full", label: t(lang, "packFull") },
+      { code: "glb", label: t(lang, "packGlb") },
+    ],
+    get: () => applied.packMode,
+    onPick: (code) => persistInstant({ packMode: code }),
+  });
+  paintRes = bindPillSwitch(resSwitch, {
+    items: [
+      { code: "0", label: t(lang, "texSizeOrig") },
+      { code: "2048", label: t(lang, "texSize2k") },
+      { code: "4096", label: t(lang, "texSize4k") },
+    ],
+    get: () => String(applied.maxTextureEdge || 0),
+    onPick: (code) => persistInstant({ maxTextureEdge: Number(code) || 0 }),
+  });
   renderDevPanel();
   paintSettingsFlash();
 }
 
-function collectPendingPrefs() {
-  return prefsFromUi({
-    texToggle,
-    devToggle,
-    theme: pendingTheme,
-    lang: pendingLang,
+function paintSettingsFlash() {
+  paintFlash(settingsFlash, {
+    dirty: isJobDirty(
+      { textures: pendingTex, devMode: pendingDev },
+      applied
+    ),
+    appliedOk,
+    t,
+    lang,
   });
 }
 
-function isDirty() {
-  const p = collectPendingPrefs();
-  return (
-    p.textures !== downloadTextures ||
-    p.devMode !== devMode ||
-    p.theme !== theme ||
-    p.lang !== lang
-  );
-}
-
-function paintSettingsFlash() {
-  if (!settingsFlash) return;
-  if (isDirty()) {
-    settingsFlash.hidden = false;
-    settingsFlash.className = "settings-flash show dirty";
-    settingsFlash.textContent = t(lang, "settingsDirty");
-    return;
-  }
-  if (appliedOk) {
-    settingsFlash.hidden = false;
-    settingsFlash.className = "settings-flash show ok";
-    settingsFlash.textContent = t(lang, "settingsSaved");
-    return;
-  }
-  settingsFlash.hidden = true;
-  settingsFlash.className = "settings-flash";
-  settingsFlash.textContent = "";
-}
-
-async function applyPendingPrefs() {
-  const snap = collectPendingPrefs();
-  const next = await savePrefs(snap);
-  try {
-    await setLang(next.lang);
-  } catch (_) {}
-  downloadTextures = next.textures === true;
-  theme = next.theme;
+async function persistInstant(partial) {
+  const next = await savePrefs(partial);
+  applied = next;
   lang = next.lang;
-  pendingTheme = next.theme;
-  pendingLang = next.lang;
   devMode = next.devMode === true;
-  setDevModeCache(devMode);
-  if (texToggle) texToggle.checked = next.textures === true;
-  if (devToggle) devToggle.checked = next.devMode === true;
-  applyTheme(document.documentElement, theme);
-  applyTheme(document.body, theme);
-  appliedOk = true;
+  applyTheme(document.documentElement, next.theme);
+  applyTheme(document.body, next.theme);
   applyStaticI18n();
   return next;
 }
 
-function renderThemeSwitch() {
-  if (!themeSwitch) return;
-  themeSwitch.innerHTML = "";
-  themeSwitch.className = "sf-lang";
-  for (const code of ["light", "dark"]) {
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = "sf-lang-btn" + (pendingTheme === code ? " active" : "");
-    btn.textContent = t(lang, code === "light" ? "themeLight" : "themeDark");
-    btn.addEventListener("click", () => {
-      pendingTheme = code;
-      renderThemeSwitch();
-      paintSettingsFlash();
-    });
-    themeSwitch.appendChild(btn);
-  }
+async function applyJobPrefs() {
+  const next = await savePrefs({
+    textures: pendingTex,
+    devMode: pendingDev,
+  });
+  applied = next;
+  pendingTex = next.textures === true;
+  pendingDev = next.devMode === true;
+  devMode = next.devMode === true;
+  setDevModeCache(devMode);
+  if (texToggle) texToggle.checked = pendingTex;
+  if (devToggle) devToggle.checked = pendingDev;
+  appliedOk = true;
+  applyStaticI18n();
+  return next;
 }
 
 async function getActiveTab() {
@@ -308,18 +322,24 @@ btnDl.addEventListener("click", async () => {
 
   try {
     const saved = await loadPrefs();
-    if (isDirty()) {
+    applied = saved;
+    pendingTex = !!(texToggle && texToggle.checked);
+    pendingDev = !!(devToggle && devToggle.checked);
+    if (isJobDirty({ textures: pendingTex, devMode: pendingDev }, saved)) {
       setStatus(t(lang, "settingsDirty"), "warn");
     }
-    appendLiveLog("settings textures=" + (saved.textures ? "on" : "off"));
+    const flags = jobFlagsFromPrefs(saved);
+    appendLiveLog("settings textures=" + (flags.downloadTextures ? "on" : "off"));
     // Prefer page pipeline: content script dumps WebGL-captured textures first
     let pageResult = null;
     try {
       pageResult = await Promise.race([
         chrome.tabs.sendMessage(tab.id, {
           action: "downloadCurrent",
-          downloadTextures: saved.textures === true,
-          devMode: saved.devMode === true,
+          downloadTextures: flags.downloadTextures,
+          devMode: flags.devMode,
+          packMode: flags.packMode,
+          maxTextureEdge: flags.maxTextureEdge,
         }),
         new Promise((_, rej) =>
           setTimeout(() => rej(new Error("page timeout")), 15 * 60 * 1000)
@@ -359,8 +379,10 @@ btnDl.addEventListener("click", async () => {
         if (devMode) appendLiveLog(m);
       },
       {
-        devMode: saved.devMode === true,
-        downloadTextures: saved.textures === true,
+        devMode: flags.devMode,
+        downloadTextures: flags.downloadTextures,
+        packMode: flags.packMode,
+        maxTextureEdge: flags.maxTextureEdge,
         onLog: (entry) => {
           if (!entry) return;
           appendLiveLog(
@@ -418,7 +440,7 @@ tabSet.addEventListener("click", () => showTab("set"));
 if (btnSaveSettings) {
   btnSaveSettings.addEventListener("click", async () => {
     try {
-      const next = await applyPendingPrefs();
+      const next = await applyJobPrefs();
       setStatus(t(lang, "settingsSaved"), "ok");
       paintSettingsFlash();
       appendLiveLog(
@@ -444,12 +466,14 @@ if (btnSaveSettings) {
 
 if (texToggle) {
   texToggle.addEventListener("change", () => {
+    pendingTex = !!texToggle.checked;
     appliedOk = false;
     paintSettingsFlash();
   });
 }
 if (devToggle) {
   devToggle.addEventListener("change", () => {
+    pendingDev = !!devToggle.checked;
     appliedOk = false;
     paintSettingsFlash();
   });
@@ -473,22 +497,20 @@ btnClearLog.addEventListener("click", () => {
 
 async function init() {
   const prefs = await loadPrefs();
+  applied = prefs;
   lang = prefs.lang;
-  pendingLang = prefs.lang;
+  pendingTex = prefs.textures === true;
+  pendingDev = prefs.devMode === true;
   devMode = prefs.devMode === true;
-  downloadTextures = prefs.textures === true;
-  theme = prefs.theme;
-  pendingTheme = prefs.theme;
-  applyTheme(document.documentElement, theme);
-  applyTheme(document.body, theme);
+  applyTheme(document.documentElement, prefs.theme);
+  applyTheme(document.body, prefs.theme);
   setDevModeCache(devMode);
   if (texToggle) {
-    texToggle.checked = prefs.textures === true;
+    texToggle.checked = pendingTex;
     texToggle.disabled = false;
   }
-  if (devToggle) devToggle.checked = prefs.devMode === true;
+  if (devToggle) devToggle.checked = pendingDev;
 
-  // Show last run log if any (dev mode)
   if (devMode) {
     const last = await readLastRunLog();
     if (last.text) {
@@ -501,9 +523,8 @@ async function init() {
       if (switching) return;
       switching = true;
       try {
-        pendingLang = code === "ru" ? "ru" : "en";
-        updateLangSwitch(langHost, pendingLang);
-        paintSettingsFlash();
+        await persistInstant({ lang: code === "ru" ? "ru" : "en" });
+        await setLang(applied.lang);
       } finally {
         switching = false;
       }

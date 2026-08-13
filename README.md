@@ -21,7 +21,7 @@ Repository: https://github.com/seryi882/sketchfab-downloader-extension
 | Public models | Mesh + optional textures from the public viewer |
 | glTF output | `.glb` with PBR materials (Blender: File → Import → glTF 2.0) |
 | Textures | Optional. Off by default. Protected maps are descrambled with the viewer `pk` key |
-| Settings | Textures, developer mode, theme, language — take effect after **Apply settings** |
+| Settings | Theme, language, archive type and texture size apply immediately. Textures and developer mode need **Apply settings** |
 | Two identical UIs | Extension popup and the floating **⬇** panel on the model page |
 | Bulk download | Paste many public links on a dedicated page |
 | Heavy models | Decrypt / descramble / zip run in an offscreen worker (2K–8K packs) |
@@ -47,10 +47,9 @@ Repository: https://github.com/seryi882/sketchfab-downloader-extension
 
 1. Open a **public** Sketchfab model page.
 2. Open **Settings** (popup or ⬇ panel).
-3. Turn on **Download textures** if you need maps (leave off for a fast mesh-only ZIP).
-4. Optionally enable **Developer mode** and pick theme / language.
-5. Click **Apply settings** — wait for the green **Settings applied** message.
-6. Download from the **Download** tab or the ⬇ panel.
+3. Turn on **Download textures** if you need maps (leave off for a fast mesh-only ZIP), then click **Apply settings**.
+4. Theme, language, archive type and texture size apply as soon as you change them.
+5. Download from the **Download** tab or the ⬇ panel.
 
 | Where | Action |
 |---|---|
@@ -58,7 +57,7 @@ Repository: https://github.com/seryi882/sketchfab-downloader-extension
 | Extension popup | **Download this model** |
 | Bulk page | Popup → **Bulk download page…** → paste links → **Download all** |
 
-Unapplied toggles do nothing. Download uses the last **applied** settings.
+Unapplied **Download textures** / **Developer mode** toggles do nothing. Download uses the last **applied** job flags.
 
 In Blender: **File → Import → glTF 2.0** → open the `.glb`. Press **Z → Material Preview** (Solid mode hides textures).
 
@@ -66,18 +65,20 @@ In Blender: **File → Import → glTF 2.0** → open the `.glb`. Press **Z → 
 
 ## Settings
 
-| Setting | Default | Notes |
+| Setting | Default | When it applies |
 |---|---|---|
-| Download textures | Off | When on, ZIP name ends with `-textures` |
-| Developer mode | Off | Detailed log; packs `download-log.txt` |
-| Theme | Light | Light / Dark |
-| Language | Browser (EN / RU) | Saved with the other prefs |
-
-Changes apply only after **Apply settings**.
+| Download textures | Off | After **Apply settings**. ZIP name then ends with `-textures` |
+| Developer mode | Off | After **Apply settings**. Extra log; packs `download-log.txt` |
+| Theme | Light | Immediately |
+| Language | Browser (EN / RU) | Immediately |
+| Archive | Full | Immediately. **GLB only** keeps `.glb`, `README.txt`, `info.json` |
+| Texture size | Original | Immediately. Original = largest map. **≤ 2K / ≤ 4K** only if you pick them |
 
 ---
 
 ## ZIP contents
+
+**Full** archive:
 
 ```text
 ModelName-abcd1234.zip              # or ModelName-abcd1234-textures.zip
@@ -92,7 +93,9 @@ ModelName-abcd1234.zip              # or ModelName-abcd1234-textures.zip
 └── download-log.txt                # only if developer mode is on
 ```
 
-Protected Sketchfab maps are descrambled (PNG/JPEG, including 4K/8K). If a map cannot be decoded, the public CDN file is kept and listed in `MISSING_BLIT.txt`.
+**GLB only** keeps `ModelName.glb`, `README.txt`, `info.json`, and `download-log.txt` when developer mode is on. ZIP entries are deflated when that shrinks them.
+
+Protected Sketchfab maps are descrambled (PNG/JPEG, including 4K/8K). If a map cannot be decoded, the public CDN file is kept and listed in `MISSING_BLIT.txt` (Full archive only).
 
 ---
 
@@ -101,9 +104,9 @@ Protected Sketchfab maps are descrambled (PNG/JPEG, including 4K/8K). If a map c
 1. Reads the public embed/viewer page (UID, materials, mesh URLs, `diter.b`).
 2. Extracts the current static decrypt key from live Sketchfab JS.
 3. Downloads `.binz` and decrypts them with WASM.
-4. If textures are on: fetches the public texture API, descrambles maps that have `pk`.
+4. If textures are on: fetches public maps in parallel (3 at a time), picks Original / ≤2K / ≤4K as set, descrambles maps that have `pk`.
 5. Converts osgjs → glTF (Y-up so the model stands in Blender).
-6. Packs the ZIP in an offscreen document (the service worker cannot hold 4K/8K RGBA).
+6. Packs a deflated ZIP in an offscreen document (the service worker cannot hold 4K/8K RGBA).
 
 ---
 
@@ -119,7 +122,7 @@ Protected Sketchfab maps are descrambled (PNG/JPEG, including 4K/8K). If a map c
 | Permission | Why |
 |---|---|
 | `downloads` | Save the ZIP |
-| `storage` | Settings (textures, theme, language, developer mode) |
+| `storage` | Settings (textures, theme, language, developer mode, archive, texture size) |
 | `tabs` / `activeTab` | Talk to the model page |
 | `offscreen` | Decrypt, descramble, zip large texture packs |
 | Sketchfab host access | Public viewer data and CDN maps |

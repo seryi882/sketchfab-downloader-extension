@@ -27,6 +27,14 @@ async function runDownload(payload) {
       ...(payload.devMode === true || payload.devMode === false
         ? { devMode: payload.devMode === true }
         : {}),
+      ...(payload.packMode === "glb" || payload.packMode === "full"
+        ? { packMode: payload.packMode }
+        : {}),
+      ...(payload.maxTextureEdge === 0 ||
+      payload.maxTextureEdge === 2048 ||
+      payload.maxTextureEdge === 4096
+        ? { maxTextureEdge: payload.maxTextureEdge }
+        : {}),
     }
   );
   const zip =

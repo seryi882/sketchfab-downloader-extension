@@ -32,11 +32,14 @@
   }
 
   let uiProgress = null;
-  let paintThemeSwitch = null;
   let pendingTheme = "light";
   let pendingLang = "en";
   let appliedOk = false;
   let appliedTextures = false;
+  let appliedPack = "full";
+  let appliedEdge = 0;
+  let settingsApi = null;
+  let uiSettings = null;
   try {
     /* filled after dynamic import */
   } catch (_) {}
@@ -340,32 +343,84 @@
     if (!root) return false;
     const tex = root.querySelector("#sf-dl-textoggle");
     const dev = root.querySelector("#sf-dl-devtoggle");
+    const pending = {
+      textures: !!(tex && tex.checked),
+      devMode: !!(dev && dev.checked),
+    };
+    if (uiSettings && uiSettings.isJobDirty) {
+      return uiSettings.isJobDirty(pending, {
+        textures: appliedTextures,
+        devMode,
+      });
+    }
     return (
-      !!(tex && tex.checked) !== appliedTextures ||
-      !!(dev && dev.checked) !== !!devMode ||
-      pendingTheme !== (root.getAttribute("data-theme") === "dark" ? "dark" : "light") ||
-      pendingLang !== lang
+      pending.textures !== appliedTextures || pending.devMode !== !!devMode
     );
+  }
+
+  async function persistInstantPanel(partial) {
+    if (!settingsApi || !settingsApi.savePrefs) return null;
+    const next = await settingsApi.savePrefs(partial);
+    appliedPack = next.packMode === "glb" ? "glb" : "full";
+    appliedEdge =
+      next.maxTextureEdge === 2048 || next.maxTextureEdge === 4096
+        ? next.maxTextureEdge
+        : 0;
+    pendingTheme = next.theme === "dark" ? "dark" : "light";
+    pendingLang = next.lang === "ru" ? "ru" : "en";
+    lang = pendingLang;
+    const root = document.getElementById("sf-dl-root");
+    if (root && settingsApi.applyTheme) settingsApi.applyTheme(root, next.theme);
+    applyPanelI18n(root);
+    return next;
+  }
+
+  function bindSettingsPills(root) {
+    if (!root || !uiSettings) return;
+    uiSettings.bindThemeSwitch(root.querySelector("#sf-dl-theme"), {
+      getTheme: () => pendingTheme,
+      onPick: (code) => persistInstantPanel({ theme: code }),
+      t: (_lng, key) => tt(key),
+      lang,
+    });
+    uiSettings.bindPillSwitch(root.querySelector("#sf-dl-pack"), {
+      items: [
+        { code: "full", label: tt("packFull") },
+        { code: "glb", label: tt("packGlb") },
+      ],
+      get: () => appliedPack,
+      onPick: (code) => persistInstantPanel({ packMode: code }),
+    });
+    uiSettings.bindPillSwitch(root.querySelector("#sf-dl-res"), {
+      items: [
+        { code: "0", label: tt("texSizeOrig") },
+        { code: "2048", label: tt("texSize2k") },
+        { code: "4096", label: tt("texSize4k") },
+      ],
+      get: () => String(appliedEdge || 0),
+      onPick: (code) => persistInstantPanel({ maxTextureEdge: Number(code) || 0 }),
+    });
   }
 
   function paintSettingsFlash() {
     const el = document.querySelector("#sf-dl-settings-flash");
+    if (uiSettings && uiSettings.paintSettingsFlash) {
+      uiSettings.paintSettingsFlash(el, {
+        dirty: isSettingsDirty(),
+        appliedOk,
+        t: (lng, key) => tt(key),
+        lang,
+      });
+      return;
+    }
     if (!el) return;
-    if (isSettingsDirty()) {
-      el.hidden = false;
-      el.className = "show dirty";
-      el.textContent = tt("settingsDirty");
-      return;
-    }
-    if (appliedOk) {
-      el.hidden = false;
-      el.className = "show ok";
-      el.textContent = tt("settingsSaved");
-      return;
-    }
-    el.hidden = true;
-    el.className = "";
-    el.textContent = "";
+    el.hidden = !isSettingsDirty() && !appliedOk;
+    el.className = isSettingsDirty() ? "show dirty" : appliedOk ? "show ok" : "";
+    el.textContent = isSettingsDirty()
+      ? tt("settingsDirty")
+      : appliedOk
+        ? tt("settingsSaved")
+        : "";
   }
 
   function appendLog(line) {
@@ -598,13 +653,29 @@
       if (job && (job.devMode === true || job.devMode === false)) {
         wantDev = job.devMode === true;
       }
+      let packMode = appliedPack === "glb" ? "glb" : "full";
+      let maxTextureEdge = appliedEdge === 2048 || appliedEdge === 4096 ? appliedEdge : 0;
       if (!job || typeof job.downloadTextures !== "boolean") {
         try {
           const s = await import(chrome.runtime.getURL("lib/settings.js"));
           const prefs = await s.loadPrefs();
           wantTextures = prefs.textures === true;
           wantDev = prefs.devMode === true;
+          packMode = prefs.packMode === "glb" ? "glb" : "full";
+          maxTextureEdge =
+            prefs.maxTextureEdge === 2048 || prefs.maxTextureEdge === 4096
+              ? prefs.maxTextureEdge
+              : 0;
         } catch (_) {}
+      } else {
+        if (job.packMode === "glb" || job.packMode === "full") packMode = job.packMode;
+        if (
+          job.maxTextureEdge === 0 ||
+          job.maxTextureEdge === 2048 ||
+          job.maxTextureEdge === 4096
+        ) {
+          maxTextureEdge = job.maxTextureEdge;
+        }
       }
       if (isSettingsDirty()) {
         setStatus(tt("settingsDirty"));
@@ -622,6 +693,8 @@
           {
             devMode: wantDev,
             downloadTextures: wantTextures,
+            packMode,
+            maxTextureEdge,
             capturedTextures,
             onLog: (entry) => {
               if (!entry) return;
@@ -648,6 +721,8 @@
             {
               devMode: wantDev,
               downloadTextures: wantTextures,
+              packMode,
+              maxTextureEdge,
               capturedTextures: [],
               onLog: (entry) => {
                 if (!entry) return;
@@ -758,25 +833,44 @@
     if (saveSet) saveSet.textContent = tt("saveSettings");
     const saveHint = root.querySelector("#sf-dl-save-hint");
     if (saveHint) saveHint.textContent = tt("settingsSaveHint");
-    updateCaptureUi(root);
-    if (typeof paintThemeSwitch === "function") {
-      paintThemeSwitch(pendingTheme);
+    const packLab = root.querySelector("#sf-dl-pack-label");
+    if (packLab) packLab.textContent = tt("optPack");
+    const packHint = root.querySelector("#sf-dl-pack-hint");
+    if (packHint) packHint.textContent = tt("packHint");
+    const resLab = root.querySelector("#sf-dl-res-label");
+    if (resLab) resLab.textContent = tt("optTexSize");
+    const resHint = root.querySelector("#sf-dl-res-hint");
+    if (resHint) resHint.textContent = tt("texSizeHint");
+    const jobEl = root.querySelector("#sf-dl-job");
+    if (jobEl && uiSettings && uiSettings.formatJobStatus) {
+      jobEl.textContent = uiSettings.formatJobStatus(
+        {
+          textures: appliedTextures,
+          devMode,
+          packMode: appliedPack,
+          maxTextureEdge: appliedEdge,
+        },
+        (lng, key, vars) => tt(key, vars),
+        lang
+      );
     }
+    updateCaptureUi(root);
+    bindSettingsPills(root);
     if (i18n && i18n.updateLangSwitch) {
-      i18n.updateLangSwitch(root.querySelector("#sf-dl-lang"), pendingLang);
+      i18n.updateLangSwitch(root.querySelector("#sf-dl-lang"), lang);
     }
     paintSettingsFlash();
     renderDevUi(root);
   }
 
   async function switchLang(code) {
-    pendingLang = code === "ru" ? "ru" : "en";
-    appliedOk = false;
-    const root = document.getElementById("sf-dl-root");
-    if (i18n && i18n.updateLangSwitch) {
-      i18n.updateLangSwitch(root && root.querySelector("#sf-dl-lang"), pendingLang);
+    lang = code === "ru" ? "ru" : "en";
+    pendingLang = lang;
+    if (i18n && i18n.setLang) await i18n.setLang(lang);
+    if (settingsApi && settingsApi.savePrefs) {
+      await settingsApi.savePrefs({ lang });
     }
-    paintSettingsFlash();
+    applyPanelI18n(document.getElementById("sf-dl-root"));
   }
 
   async function ensureUi() {
@@ -810,6 +904,7 @@
         <div id="sf-dl-body">
           <section id="sf-dl-pane-dl" class="sf-pane active">
             <div id="sf-dl-ready">Ready to download</div>
+            <div id="sf-dl-job" class="sf-set-hint"></div>
             <div id="sf-dl-meta" data-dev-only>Public model → glTF (GLB)</div>
             <div id="sf-dl-captures" data-dev-only data-state="waiting">WebGL: …</div>
             <div id="sf-dl-status" data-dev-only data-i18n-ready="1">Ready.</div>
@@ -851,6 +946,16 @@
             <div class="sf-setting">
               <span id="sf-dl-lang-label" class="sf-set-cap">Language</span>
               <div id="sf-dl-lang"></div>
+            </div>
+            <div class="sf-setting">
+              <span id="sf-dl-pack-label" class="sf-set-cap">Archive</span>
+              <div id="sf-dl-pack"></div>
+              <p id="sf-dl-pack-hint" class="sf-set-hint"></p>
+            </div>
+            <div class="sf-setting">
+              <span id="sf-dl-res-label" class="sf-set-cap">Texture size</span>
+              <div id="sf-dl-res"></div>
+              <p id="sf-dl-res-hint" class="sf-set-hint"></p>
             </div>
             <button id="sf-dl-save-settings" type="button">Apply settings</button>
             <div id="sf-dl-settings-flash" hidden></div>
@@ -900,12 +1005,22 @@
       })
       .catch(() => {});
 
-    import(chrome.runtime.getURL("lib/settings.js"))
-      .then(async (s) => {
+    Promise.all([
+      import(chrome.runtime.getURL("lib/settings.js")),
+      import(chrome.runtime.getURL("lib/ui-settings.js")),
+    ])
+      .then(async ([s, ui]) => {
+        settingsApi = s;
+        uiSettings = ui;
         const prefs = await s.loadPrefs();
         appliedTextures = prefs.textures === true;
+        appliedPack = prefs.packMode === "glb" ? "glb" : "full";
+        appliedEdge = prefs.maxTextureEdge === 2048 || prefs.maxTextureEdge === 4096
+          ? prefs.maxTextureEdge
+          : 0;
         pendingTheme = prefs.theme;
         pendingLang = prefs.lang || lang;
+        lang = prefs.lang || lang;
         if (texToggle) {
           texToggle.checked = prefs.textures === true;
           texToggle.disabled = false;
@@ -922,30 +1037,7 @@
           });
         }
         s.applyTheme(root, prefs.theme);
-        const themeHost = root.querySelector("#sf-dl-theme");
-        paintThemeSwitch = (cur) => {
-          if (!themeHost) return;
-          themeHost.innerHTML = "";
-          themeHost.className = "sf-lang";
-          themeHost.setAttribute("role", "group");
-          for (const code of ["light", "dark"]) {
-            const btn = document.createElement("button");
-            btn.type = "button";
-            btn.className = "sf-lang-btn" + (cur === code ? " active" : "");
-            btn.dataset.theme = code;
-            btn.textContent = tt(code === "light" ? "themeLight" : "themeDark");
-            btn.addEventListener("click", (e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              pendingTheme = code;
-              appliedOk = false;
-              paintThemeSwitch(code);
-              paintSettingsFlash();
-            });
-            themeHost.appendChild(btn);
-          }
-        };
-        paintThemeSwitch(pendingTheme);
+        bindSettingsPills(root);
 
         const saveBtn = root.querySelector("#sf-dl-save-settings");
         if (saveBtn) {
@@ -956,14 +1048,8 @@
               const next = await s.savePrefs({
                 textures: !!(texToggle && texToggle.checked),
                 devMode: !!(devToggle && devToggle.checked),
-                theme: pendingTheme === "dark" ? "dark" : "light",
-                lang: pendingLang === "ru" ? "ru" : "en",
               });
               appliedTextures = next.textures === true;
-              pendingTheme = next.theme;
-              pendingLang = next.lang;
-              lang = next.lang;
-              if (i18n && i18n.setLang) await i18n.setLang(next.lang);
               if (texToggle) texToggle.checked = next.textures === true;
               if (devToggle) devToggle.checked = next.devMode === true;
               devMode = next.devMode === true;
@@ -971,7 +1057,6 @@
                 const d = await import(chrome.runtime.getURL("lib/devlog.js"));
                 d.setDevModeCache(devMode);
               } catch (_) {}
-              s.applyTheme(root, next.theme);
               appliedOk = true;
               applyPanelI18n(root);
               setStatus(tt("settingsSaved"));
@@ -986,6 +1071,7 @@
           });
         }
         paintSettingsFlash();
+        applyPanelI18n(root);
       })
       .catch(() => {
         if (texToggle) {
@@ -1179,6 +1265,16 @@
               msg.devMode === true || msg.devMode === false
                 ? msg.devMode === true
                 : undefined,
+            packMode:
+              msg.packMode === "glb" || msg.packMode === "full"
+                ? msg.packMode
+                : undefined,
+            maxTextureEdge:
+              msg.maxTextureEdge === 0 ||
+              msg.maxTextureEdge === 2048 ||
+              msg.maxTextureEdge === 4096
+                ? msg.maxTextureEdge
+                : undefined,
           });
         })
         .then((r) =>
@@ -1223,21 +1319,32 @@
       if (changes.sf_prefs && changes.sf_prefs.newValue) {
         const p = changes.sf_prefs.newValue;
         appliedTextures = p.textures === true;
+        appliedPack = p.packMode === "glb" ? "glb" : "full";
+        appliedEdge =
+          p.maxTextureEdge === 2048 || p.maxTextureEdge === 4096
+            ? p.maxTextureEdge
+            : 0;
         pendingTheme = p.theme === "dark" ? "dark" : "light";
         pendingLang = p.lang === "ru" ? "ru" : "en";
         lang = pendingLang;
         devMode = p.devMode === true;
+        const dirty = isSettingsDirty();
         const el = document.querySelector("#sf-dl-textoggle");
-        if (el) {
-          el.checked = p.textures === true;
-          el.disabled = false;
-        }
         const devEl = document.querySelector("#sf-dl-devtoggle");
-        if (devEl) devEl.checked = p.devMode === true;
+        if (!dirty) {
+          if (el) {
+            el.checked = p.textures === true;
+            el.disabled = false;
+          }
+          if (devEl) devEl.checked = p.devMode === true;
+          appliedOk = true;
+        }
         const root = document.getElementById("sf-dl-root");
-        if (root) root.setAttribute("data-theme", pendingTheme);
-        if (typeof paintThemeSwitch === "function") paintThemeSwitch(pendingTheme);
-        appliedOk = true;
+        if (root && settingsApi && settingsApi.applyTheme) {
+          settingsApi.applyTheme(root, pendingTheme);
+        } else if (root) {
+          root.setAttribute("data-theme", pendingTheme);
+        }
         applyPanelI18n(document.getElementById("sf-dl-root"));
       }
     });
