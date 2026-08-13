@@ -38,3 +38,11 @@ test("descrambleRgba keeps size and is deterministic", () => {
   }
   assert.ok(red < (w * h) / 2, "valid pk should not paint mostly error-red");
 });
+
+test("descrambleRgba accepts sizes that are not multiples of 8", () => {
+  const w = 400;
+  const h = 401;
+  const src = makeRgba(w, h);
+  const out = descrambleRgba(src, w, h, 160765, true);
+  assert.equal(out.length, w * h * 4);
+});

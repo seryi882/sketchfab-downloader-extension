@@ -1,7 +1,12 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { parseViewerMaterials } from "../lib/sf-api.js";
-import { classifyTextureName, findViewerSpec } from "../lib/osgjs2gltf.js";
+import {
+  classifyTextureName,
+  findViewerSpec,
+  chooseAlbedoName,
+  shouldSkipUntexturedShell,
+} from "../lib/osgjs2gltf.js";
 
 function tex(uid, enable = true) {
   return { enable, texture: { uid } };
@@ -45,4 +50,45 @@ test("findViewerSpec matches StateSet-style names", () => {
   const hit = findViewerSpec(vm, null, "lambert2SG");
   assert.ok(hit);
   assert.equal(hit.spec.name, "lambert2SG");
+});
+
+test("chooseAlbedoName promotes a large unknown specular atlas over a tiny diffuse", () => {
+  const list = [
+    { name: "textures/Image2.png", width: 400, height: 401, fromDescramble: false },
+    { name: "textures/pant_final.png", width: 4096, height: 4096, fromDescramble: true },
+  ];
+  assert.equal(
+    chooseAlbedoName("Image2.png", "pant_final.png", list),
+    "pant_final.png"
+  );
+});
+
+test("chooseAlbedoName does not steal a named SpecularMap", () => {
+  const list = [
+    { name: "textures/Body_D.png", width: 2048, height: 2048, fromDescramble: true },
+    { name: "textures/Archer_SpecularMap.png", width: 4096, height: 4096 },
+  ];
+  assert.equal(
+    chooseAlbedoName("Body_D.png", "Archer_SpecularMap.png", list),
+    "Body_D.png"
+  );
+});
+
+test("shouldSkipUntexturedShell keeps hair that has an opacity atlas", () => {
+  assert.equal(
+    shouldSkipUntexturedShell(
+      { albedoUid: null, opacityUid: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" },
+      "hair:Group49590SG",
+      null
+    ),
+    false
+  );
+  assert.equal(
+    shouldSkipUntexturedShell(
+      { albedoUid: null, opacityUid: null },
+      "hair:Group49590SG",
+      null
+    ),
+    true
+  );
 });
