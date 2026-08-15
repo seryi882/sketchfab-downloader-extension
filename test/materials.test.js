@@ -92,3 +92,60 @@ test("shouldSkipUntexturedShell keeps hair that has an opacity atlas", () => {
     true
   );
 });
+
+test("a visible refractive glass cover is exported, not skipped", () => {
+  // vpcm2_glass_cover: opacity factor 1, type 'refraction'. The old name-based
+  // /glass/i rule dropped the mesh, so the model lost its glossy screen.
+  const info = {
+    options: {
+      materials: {
+        g1: {
+          name: "vpcm2_glass_cover",
+          channels: {
+            AlbedoPBR: tex("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", true),
+            Opacity: { enable: true, factor: 1, type: "refraction" },
+          },
+        },
+      },
+    },
+  };
+  const spec = parseViewerMaterials(info).get("vpcm2_glass_cover");
+  assert.equal(spec.skipMesh, false, "visible glass must survive export");
+  assert.equal(spec.transmission, true, "and be marked for KHR_materials_transmission");
+});
+
+test("an invisible glass shell is still skipped", () => {
+  const info = {
+    options: {
+      materials: {
+        g1: {
+          name: "window_glass",
+          channels: {
+            AlbedoPBR: tex("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", true),
+            Opacity: { enable: true, factor: 0, type: "alphaBlend" },
+          },
+        },
+      },
+    },
+  };
+  const spec = parseViewerMaterials(info).get("window_glass");
+  assert.equal(spec.skipMesh, true, "a fully transparent veil must still be dropped");
+});
+
+test("a non-refractive named glass shell is still skipped", () => {
+  const info = {
+    options: {
+      materials: {
+        g1: {
+          name: "glass_rim",
+          channels: {
+            AlbedoPBR: tex("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", true),
+            Opacity: { enable: true, factor: 1, type: "alphaBlend" },
+          },
+        },
+      },
+    },
+  };
+  const spec = parseViewerMaterials(info).get("glass_rim");
+  assert.equal(spec.skipMesh, true);
+});
