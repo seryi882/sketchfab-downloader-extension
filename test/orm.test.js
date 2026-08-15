@@ -122,3 +122,26 @@ test("pbrFactors does not promote an explicit metallicFactor of 0", () => {
   assert.equal(f.metallicFactor, 0);
   assert.equal(f.roughnessFactor, 0.4);
 });
+
+test("a flat white opacity map bakes to fully opaque, so BLEND is not warranted", async () => {
+  const { encodePngRgba } = await import("../lib/descramble.js");
+  const { bakeOpacityIntoAlbedo } = await import("../lib/osgjs2gltf.js");
+
+  const size = 4;
+  const n = size * size;
+  const albedo = new Uint8ClampedArray(n * 4);
+  const opaqueMask = new Uint8ClampedArray(n * 4);
+  const holeMask = new Uint8ClampedArray(n * 4);
+  for (let i = 0; i < n; i++) {
+    albedo.set([120, 120, 120, 255], i * 4);
+    opaqueMask.set([255, 255, 255, 255], i * 4); // flat white == fully opaque
+    holeMask.set([i === 0 ? 0 : 255, i === 0 ? 0 : 255, i === 0 ? 0 : 255, 255], i * 4);
+  }
+  const albedoPng = await encodePngRgba(albedo, size, size);
+
+  const flat = await bakeOpacityIntoAlbedo(albedoPng, await encodePngRgba(opaqueMask, size, size));
+  assert.equal(flat.hasTransparency, false, "flat white opacity must not request BLEND");
+
+  const holed = await bakeOpacityIntoAlbedo(albedoPng, await encodePngRgba(holeMask, size, size));
+  assert.equal(holed.hasTransparency, true, "a real cutout must still request BLEND");
+});
