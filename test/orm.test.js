@@ -149,3 +149,19 @@ test("a flat white opacity map bakes to fully opaque, so BLEND is not warranted"
   const holed = await bakeOpacityIntoAlbedo(albedoPng, await encodePngRgba(holeMask, size, size));
   assert.equal(holed.hasTransparency, true, "a real cutout must still request BLEND");
 });
+
+test("the packer resolves uids through the converter's own resolver", async () => {
+  // The pipeline used to carry a second, subtly different copy of this logic:
+  // it missed Sketchfab's 32-hex filename prefix and the substring fallback, so
+  // it could decline to pack a texture the converter went on to bind.
+  const { resolveUidToBase, textureBasename } = await import("../lib/osgjs2gltf.js");
+  assert.equal(typeof resolveUidToBase, "function", "pipeline imports this at runtime");
+  assert.equal(typeof textureBasename, "function", "pipeline imports this at runtime");
+
+  const list = [
+    { name: "textures/aabbccddeeff00112233445566778899_case_metallic.jpg", uid: "M1", imageUids: [] },
+    { name: "textures/case_roughness.jpg", uid: "R1", imageUids: ["R2"] },
+  ];
+  assert.equal(resolveUidToBase("M1", list), "case_metallic.jpg", "strips the uid prefix");
+  assert.equal(resolveUidToBase("R2", list), "case_roughness.jpg", "matches via imageUids");
+});
