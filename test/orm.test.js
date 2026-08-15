@@ -18,6 +18,10 @@ test("isPackedOrmName separates packed ORM from single-channel maps", () => {
   // the case that shipped the bug: classifies as 'metalrough' but is metal-only
   assert.equal(isPackedOrmName("vpcm2_case_metallic.jpg"), false);
   assert.equal(isPackedOrmName("vpcm2_case_roughness.jpg"), false);
+  // "arm" is a body part far more often than an AO/Roughness/Metallic pack;
+  // treating one as packed would rebind a metal-only map and restore the bug.
+  assert.equal(isPackedOrmName("Character_arm_metallic.png"), false);
+  assert.equal(isPackedOrmName("robot_arm_roughness.jpg"), false);
   assert.equal(classifyTextureName("vpcm2_case_metallic.jpg"), "metalrough");
 });
 
