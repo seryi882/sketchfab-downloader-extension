@@ -165,3 +165,48 @@ test("the packer resolves uids through the converter's own resolver", async () =
   assert.equal(resolveUidToBase("M1", list), "case_metallic.jpg", "strips the uid prefix");
   assert.equal(resolveUidToBase("R2", list), "case_roughness.jpg", "matches via imageUids");
 });
+
+test("LUMINANCE metalness is packed, never passed through", () => {
+  // Sketchfab reports the texture format. A single-channel map cannot already
+  // be a packed ORM, so this outranks any filename guess.
+  const spec = { metalnessUid: M_UID, metalnessFormat: "LUMINANCE" };
+  const plan = planOrm(spec, resolverFor({ [M_UID]: "case_metallic.jpg" }), classifyTextureName);
+  assert.equal(plan.action, "pack");
+});
+
+test("texture format outranks an ambiguous filename", () => {
+  // "arm" used to read as a packed ORM. With a reported LUMINANCE format the
+  // name is never consulted, so the collision cannot resurface.
+  const spec = { metalnessUid: M_UID, metalnessFormat: "LUMINANCE" };
+  const plan = planOrm(
+    spec,
+    resolverFor({ [M_UID]: "Character_arm_ORM.png" }),
+    classifyTextureName
+  );
+  assert.equal(plan.action, "pack", "LUMINANCE wins over an ORM-looking name");
+});
+
+test("an RGB metalness texture is a real packed ORM", () => {
+  const spec = { metalnessUid: M_UID, metalnessFormat: "RGB" };
+  const plan = planOrm(spec, resolverFor({ [M_UID]: "weird_name.png" }), classifyTextureName);
+  assert.equal(plan.action, "passthrough");
+});
+
+test("one texture on both channels is packed by construction", () => {
+  const spec = { metalnessUid: M_UID, roughnessUid: M_UID, metalnessFormat: "RGB" };
+  const plan = planOrm(spec, resolverFor({ [M_UID]: "Body_shared.png" }), classifyTextureName);
+  assert.equal(plan.action, "passthrough");
+  assert.equal(plan.texture, "Body_shared.png");
+});
+
+test("with no reported format the filename still decides, defaulting to pack", () => {
+  const noFmt = { metalnessUid: M_UID };
+  assert.equal(
+    planOrm(noFmt, resolverFor({ [M_UID]: "Body_ORM.png" }), classifyTextureName).action,
+    "passthrough"
+  );
+  assert.equal(
+    planOrm(noFmt, resolverFor({ [M_UID]: "Body_metallic.png" }), classifyTextureName).action,
+    "pack"
+  );
+});
