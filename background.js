@@ -204,6 +204,30 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     return true;
   }
 
+  // The offscreen document builds the ZIP blob but has no chrome.downloads,
+  // so it hands the blob URL here for the actual save.
+  if (msg.action === "saveZip") {
+    chrome.downloads.download(
+      {
+        url: msg.url,
+        filename: msg.filename || "sketchfab-model.zip",
+        saveAs: true,
+      },
+      (downloadId) => {
+        const err = chrome.runtime.lastError;
+        if (err || downloadId === undefined || downloadId === null) {
+          const message = (err && err.message) || "chrome.downloads.download returned no id";
+          devLog("error", "Save failed", { message });
+          sendResponse({ ok: false, error: message });
+          return;
+        }
+        devLog("info", "Save started", { downloadId, filename: msg.filename });
+        sendResponse({ ok: true, downloadId });
+      }
+    );
+    return true;
+  }
+
   if (msg.action === "getDevMode") {
     isDevMode().then((on) => sendResponse({ ok: true, devMode: on }));
     return true;
