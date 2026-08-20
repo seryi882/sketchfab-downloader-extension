@@ -27,7 +27,7 @@ function bone(name, opts = {}) {
     UpdateCallbacks: [
       {
         "osgAnimation.UpdateBone": {
-          Name: name,
+          Name: opts.animName || name,
           StackedTransforms: [
             { "osgAnimation.StackedTranslate": { Translate: opts.t || [0, 0, 0] } },
             { "osgAnimation.StackedQuaternion": { Quaternion: opts.q || [0, 0, 0, 1] } },
@@ -300,4 +300,31 @@ test("normalizeQuaternions repairs zero-length keys", () => {
   normalizeQuaternions(v);
   assert.deepEqual(Array.from(v.slice(0, 4)), [0, 0, 0, 1]);
   assert.deepEqual(Array.from(v.slice(4, 8)), [1, 0, 0, 0]);
+});
+
+test("a bone records the name its animation channels use", () => {
+  const tree = scene([{ "osgAnimation.Bone": bone("bone_00_01") }]);
+  const { skeletons } = collectSkeletons(tree);
+  assert.equal(skeletons[0].bones[0].animName, "bone_00_01");
+});
+
+test("animName follows the update callback when it differs from the bone", () => {
+  // Models imported from FBX come back with the callback carrying a different
+  // suffix from the bone node, and channels address the callback. Matching on
+  // the bone name alone loses every clip on those models.
+  const tree = scene([
+    { "osgAnimation.Bone": bone("bone_00_01", { animName: "bone_00_12" }) },
+  ]);
+  const { skeletons } = collectSkeletons(tree);
+  const b = skeletons[0].bones[0];
+  assert.equal(b.name, "bone_00_01");
+  assert.equal(b.animName, "bone_00_12");
+});
+
+test("a bone with no update callback falls back to its own name", () => {
+  const tree = scene([
+    { "osgAnimation.Bone": { Name: "plain", Matrix: IDENTITY, Children: [] } },
+  ]);
+  const { skeletons } = collectSkeletons(tree);
+  assert.equal(skeletons[0].bones[0].animName, "plain");
 });
