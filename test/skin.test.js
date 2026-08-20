@@ -257,8 +257,25 @@ test("decodeChannelCurve skips channels glTF cannot target", () => {
       Key: { ItemSize: 1, Array: { Float32Array: { Offset: 8, Size: 2 } } },
     },
   });
-  assert.equal(decodeChannelCurve(bin, "osgAnimation.FloatLerpChannel", mk("weight")), null);
   assert.equal(decodeChannelCurve(bin, "osgAnimation.Vec3LerpChannel", mk("mystery")), null);
+});
+
+test("a scalar channel decodes as a morph weight curve", () => {
+  // The channel's Name is a weight index, not a transform component, so the
+  // path comes from the channel being scalar rather than from a name lookup.
+  const bin = f32Buffer([0, 1, 2, 3]);
+  const curve = decodeChannelCurve(bin, "osgAnimation.FloatLerpChannel", {
+    Name: "0",
+    TargetName: "target_12_0_0",
+    KeyFrames: {
+      Time: { ItemSize: 1, Array: { Float32Array: { Offset: 0, Size: 2 } } },
+      Key: { ItemSize: 1, Array: { Float32Array: { Offset: 8, Size: 2 } } },
+    },
+  });
+  assert.ok(curve, "expected a curve");
+  assert.equal(curve.path, "weights");
+  assert.equal(curve.itemSize, 1);
+  assert.equal(curve.target, "target_12_0_0");
 });
 
 // --- codec primitives ---
