@@ -149,3 +149,35 @@ test("a non-refractive named glass shell is still skipped", () => {
   const spec = parseViewerMaterials(info).get("glass_rim");
   assert.equal(spec.skipMesh, true);
 });
+
+/* --- sided-ness ---------------------------------------------------------- */
+
+/** Viewer info for one material with the given top-level fields. */
+function matInfo(fields) {
+  return {
+    options: { materials: { m1: { name: "Mat", channels: {}, ...fields } } },
+  };
+}
+const sided = (fields) => parseViewerMaterials(matInfo(fields)).get("Mat").doubleSided;
+
+test("cullFace BACK means single sided", () => {
+  // Sketchfab stores the cull mode, not a sided-ness flag. Exporting
+  // everything double-sided lit the inside of every closed surface.
+  assert.equal(sided({ cullFace: "BACK" }), false);
+});
+
+test("cullFace DISABLE means double sided", () => {
+  assert.equal(sided({ cullFace: "DISABLE" }), true);
+});
+
+test("a material with no cullFace stays double sided", () => {
+  // The viewer's own default is unculled, and the permissive answer is the
+  // safe one: a wrongly single-sided mesh disappears from one side.
+  assert.equal(sided({}), true);
+});
+
+test("an unfamiliar cull mode is treated as culled", () => {
+  // FRONT and FRONT_AND_BACK both cull something, so only DISABLE is
+  // double-sided; guessing otherwise would silently re-light interiors.
+  assert.equal(sided({ cullFace: "FRONT" }), false);
+});
