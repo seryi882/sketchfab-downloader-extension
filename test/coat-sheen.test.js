@@ -67,3 +67,50 @@ test("a plain material gets neither extension", () => {
   assert.equal(s.clearCoat, null);
   assert.equal(s.sheen, null);
 });
+
+/* --- clearcoat normal map ------------------------------------------------ */
+
+test("the clearcoat normal map is read when the coat is on", () => {
+  // Values from M18_ClearCoat on r3_01: the channel only exists because it was
+  // switched on by hand in Sketchfab's editor, which is why it went unread for
+  // so long -- no upload format can set it.
+  const s = spec({
+    ClearCoat: { enable: true, factor: 1, texture: { uid: "01579247290247B3B9BA0E924BA99E0F" } },
+    ClearCoatRoughness: { enable: true, factor: 0.1 },
+    ClearCoatNormalMap: {
+      enable: true,
+      flipY: false,
+      texture: { uid: "5B7891C894DE467789C78DF2246ECF6A" },
+    },
+  });
+  assert.equal(s.clearCoat.normalTextureUid, "5b7891c894de467789c78df2246ecf6a");
+  assert.equal(s.clearCoat.normalFlipY, false);
+});
+
+test("the clearcoat normal map defaults to flipped green", () => {
+  // Same default as the surface normal map: absent flipY means Sketchfab's
+  // convention, which is the opposite handedness to glTF.
+  const s = spec({
+    ClearCoat: { enable: true, factor: 1 },
+    ClearCoatNormalMap: { enable: true, texture: { uid: "CCDD" } },
+  });
+  assert.equal(s.clearCoat.normalFlipY, true);
+});
+
+test("a clearcoat normal map on a material with no coat is ignored", () => {
+  // The channel is declared on every material. Without the coat itself there is
+  // no KHR_materials_clearcoat to hang it on.
+  const s = spec({
+    ClearCoat: { enable: false, factor: 1 },
+    ClearCoatNormalMap: { enable: true, texture: { uid: "CCDD" } },
+  });
+  assert.equal(s.clearCoat, null);
+});
+
+test("a disabled clearcoat normal map contributes no texture", () => {
+  const s = spec({
+    ClearCoat: { enable: true, factor: 1 },
+    ClearCoatNormalMap: { enable: false, texture: { uid: "CCDD" } },
+  });
+  assert.equal(s.clearCoat.normalTextureUid, null);
+});
