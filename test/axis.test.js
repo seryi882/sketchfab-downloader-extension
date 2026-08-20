@@ -6,6 +6,7 @@ import {
   isIdentityMat3,
   mat3Multiply,
   mat3Transpose,
+  mat3Invert,
   ZUP_TO_YUP_MAT3,
 } from "../lib/osg-scene.js";
 
@@ -30,12 +31,42 @@ test("findAxisConversion spots a bare quarter turn about X", () => {
   assert.ok(findAxisConversion(rootedAt([1, 0, 0, 0, 0, 0, -1, 0, 0, 1, 0, 0, 0, 0, 0, 1])));
 });
 
-test("findAxisConversion ignores placement, scale and other axes", () => {
+test("findAxisConversion accepts a uniformly scaled quarter turn", () => {
+  // Sketchfab writes the unit conversion into the same wrapper as the axis
+  // conversion: a rig authored in centimetres arrives under 0.01 * quarter
+  // turn. Treating that as an object left the scale uncancelled inside the
+  // bind matrices, which put the whole skeleton 100x out.
+  const scaled = (k) => [k, 0, 0, 0, 0, 0, k, 0, 0, -k, 0, 0, 0, 0, 0, 1];
+  assert.ok(findAxisConversion(rootedAt(scaled(0.01))));
+  assert.ok(findAxisConversion(rootedAt(scaled(2))));
+  // FBX uploads arrive under a half turn carrying the same unit change.
+  const halfTurn = (k) => [k, 0, 0, 0, 0, -k, 0, 0, 0, 0, -k, 0, 0, 0, 0, 1];
+  assert.ok(findAxisConversion(rootedAt(halfTurn(0.01))));
+  assert.ok(findAxisConversion(rootedAt(halfTurn(1))));
+  // The scale survives into the rotation, so it can be undone exactly.
+  const { matrix } = axisRotationFor(rootedAt(scaled(0.01)));
+  assert.ok(Math.abs(mat3Invert(matrix)[0] - 100) < 1e-6, "inverse restores the unit scale");
+});
+
+test("mat3Invert is a true inverse, unlike the transpose, once scale is present", () => {
+  const m = [0.01, 0, 0, 0, 0, 0.01, 0, -0.01, 0];
+  const inv = mat3Invert(m);
+  const p = mat3Multiply(m, inv);
+  for (let i = 0; i < 9; i++) {
+    assert.ok(Math.abs(p[i] - [1, 0, 0, 0, 1, 0, 0, 0, 1][i]) < 1e-9, "m * inv(m) = I");
+  }
+  // The transpose would have squared the scale instead of cancelling it.
+  assert.ok(Math.abs(mat3Multiply(m, mat3Transpose(m))[0] - 1) > 0.9);
+  assert.equal(mat3Invert([0, 0, 0, 0, 0, 0, 0, 0, 0]), null);
+});
+
+test("findAxisConversion ignores placement, non-uniform scale and other axes", () => {
   const turn = [1, 0, 0, 0, 0, 0, 1, 0, 0, -1, 0, 0];
   // Same rotation but translated — that is an object, not a conversion.
   assert.equal(findAxisConversion(rootedAt([...turn, 5, 0, 0, 1])), null);
+  // Non-uniform scale is an object too; only a single factor is a unit change.
   assert.equal(
-    findAxisConversion(rootedAt([2, 0, 0, 0, 0, 0, 2, 0, 0, -2, 0, 0, 0, 0, 0, 1])),
+    findAxisConversion(rootedAt([2, 0, 0, 0, 0, 0, 3, 0, 0, -3, 0, 0, 0, 0, 0, 1])),
     null
   );
   // Quarter turn about Z, not X.
