@@ -53,3 +53,37 @@ test("uvQuantBox picks the lowest boxed unit, not the first key seen", () => {
 test("uvQuantBox returns null when no unit carries a box", () => {
   assert.equal(uvQuantBox({ uv_1_bits: 14, uv_1_mode: 3 }, "1"), null);
 });
+
+/* --- texture unit -> glTF texCoord -------------------------------------- */
+import { texCoordsForGeometry } from "../lib/osgjs2gltf.js";
+
+test("texCoordsForGeometry leaves single-UV meshes alone", () => {
+  // The common case by a wide margin: one UV set, so every binding is index 0
+  // and the material cache key must not change.
+  const map = { uvUnits: { albedo: 1, normal: 1 } };
+  assert.deepEqual(texCoordsForGeometry(map, [1]), {});
+});
+
+test("texCoordsForGeometry maps a sparse unit onto its dense index", () => {
+  // M17_TwoUVSets on r3_01: albedo samples unit 1, the lightmap samples unit 3,
+  // and the mesh carries TexCoord1 + TexCoord3 -> TEXCOORD_0 + TEXCOORD_1.
+  const map = { uvUnits: { albedo: 1, emissive: 3 } };
+  assert.deepEqual(texCoordsForGeometry(map, [1, 3]), { emissive: 1 });
+});
+
+test("texCoordsForGeometry handles multi-digit units in numeric order", () => {
+  const map = { uvUnits: { albedo: 3, normal: 12, emissive: 18 } };
+  assert.deepEqual(texCoordsForGeometry(map, [3, 12, 18]), { normal: 1, emissive: 2 });
+});
+
+test("texCoordsForGeometry falls back to 0 for a unit with no UV data", () => {
+  // A channel can name a unit the geometry never supplied. Index 0 is the only
+  // safe answer -- a dangling texCoord would reference a missing accessor.
+  const map = { uvUnits: { albedo: 1, emissive: 9 } };
+  assert.deepEqual(texCoordsForGeometry(map, [1, 3]), {});
+});
+
+test("texCoordsForGeometry ignores roles with no recorded unit", () => {
+  const map = { uvUnits: { albedo: 1, normal: undefined } };
+  assert.deepEqual(texCoordsForGeometry(map, [1, 3]), {});
+});
