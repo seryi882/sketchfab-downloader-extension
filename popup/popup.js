@@ -523,7 +523,7 @@ async function init() {
       if (switching) return;
       switching = true;
       try {
-        await persistInstant({ lang: code === "ru" ? "ru" : "en" });
+        await persistInstant({ lang: code });
         await setLang(applied.lang);
       } finally {
         switching = false;

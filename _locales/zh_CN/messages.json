@@ -1,0 +1,10 @@
+{
+  "appName": {
+    "message": "Sketchfab 公共模型下载器",
+    "description": "扩展名称和工具栏提示"
+  },
+  "appDescription": {
+    "message": "将 Sketchfab 公共模型下载为 glTF (GLB) ZIP，支持可选纹理、批量下载和密钥自动更新。",
+    "description": "扩展说明"
+  }
+}
