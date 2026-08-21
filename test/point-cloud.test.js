@@ -80,10 +80,14 @@ test("a point cloud keeps its vertex colours", async () => {
   assert.equal(acc.normalized, true, "integer colours must be normalized");
 });
 
-test("vertex colour is still dropped on ordinary triangle meshes", async () => {
-  // The exception is scoped to point clouds; a textured mesh multiplied by a
-  // stray COLOR_0 renders untextured or transparent in Blender.
+/** The same scene as a triangle mesh, with colours supplied by `fill`. */
+async function triangleWithColors(fill) {
   const { osgjs, bin } = pointCloudScene();
+  const count = 4;
+  const colors = new Uint8Array(count * 4);
+  fill(colors);
+  bin.set(colors, count * 3 * 4);
+
   const idx = new Uint16Array([0, 1, 2]);
   const withIdx = new Uint8Array(bin.byteLength + idx.byteLength);
   withIdx.set(bin, 0);
@@ -103,8 +107,37 @@ test("vertex colour is still dropped on ordinary triangle meshes", async () => {
     },
   ];
   const res = await convertOsgjsToGlb(osgjs, withIdx, null, []);
-  const prim = res.json.meshes[0].primitives[0];
+  return res.json.meshes[0].primitives[0];
+}
+
+test("a constant tint is still dropped on a triangle mesh", async () => {
+  // Sketchfab attaches a Color attribute to most geometries whether or not the
+  // author painted one. Blender multiplies baseColorTexture by COLOR_0, so
+  // exporting an unpainted tint makes a textured model look wrong.
+  const prim = await triangleWithColors((c) => c.fill(128));
   assert.equal(prim.mode, 4);
   assert.ok(prim.indices !== undefined, "triangles stay indexed");
   assert.equal(prim.attributes.COLOR_0, undefined);
+});
+
+test("genuine vertex colour survives on a triangle mesh", async () => {
+  // A painted mesh has no other record of its colour, and variation is what
+  // separates it from the engine tint.
+  const prim = await triangleWithColors((c) => {
+    for (let i = 0; i < c.length; i++) c[i] = (i * 37) % 256;
+  });
+  assert.equal(prim.mode, 4);
+  const acc = prim.attributes.COLOR_0;
+  assert.ok(acc !== undefined, "painted colour must survive");
+});
+
+test("a single-colour point cloud keeps its colour anyway", async () => {
+  // Variation is the test for triangle meshes; for a point cloud the colour is
+  // the only surface information there is, uniform or not.
+  const { osgjs, bin, count } = pointCloudScene();
+  bin.fill(200, count * 3 * 4);
+  const res = await convertOsgjsToGlb(osgjs, bin, null, []);
+  const prim = res.json.meshes[0].primitives[0];
+  assert.equal(prim.mode, 0);
+  assert.ok(prim.attributes.COLOR_0 !== undefined);
 });
