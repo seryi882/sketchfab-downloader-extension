@@ -103,3 +103,25 @@ test("the name alone decides nothing", async () => {
     assert.equal(res.geometryCount, 1, name);
   }
 });
+
+test("refractive glass at opacity 0 is transmissive, not invisible", () => {
+  // Sketchfab's refractive opacity runs opposite to an alpha blend: factor 0 is
+  // clear glass. Reading it as invisible dropped the mesh before
+  // KHR_materials_transmission could be written, leaving that export dead --
+  // a fixture built to exercise it never once reached the output.
+  const spec = solidTint("M14_Transmission_Glass", [1, 1, 1], {
+    Opacity: { enable: true, factor: 0, type: "refraction" },
+  }).get("M14_Transmission_Glass");
+  assert.equal(spec.transmission, true);
+  assert.equal(spec.skipMesh, false, "clear glass is still geometry");
+});
+
+test("an alpha-blended mesh at opacity 0 really is invisible", () => {
+  // The same number means the opposite thing under the other opacity model,
+  // which is why the exception is scoped to refraction alone.
+  const spec = solidTint("Veil", [1, 1, 1], {
+    Opacity: { enable: true, factor: 0, type: "alphaBlend" },
+  }).get("Veil");
+  assert.equal(spec.transmission, false);
+  assert.equal(spec.skipMesh, true);
+});
