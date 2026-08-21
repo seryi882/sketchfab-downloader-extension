@@ -132,7 +132,12 @@ test("an invisible glass shell is still skipped", () => {
   assert.equal(spec.skipMesh, true, "a fully transparent veil must still be dropped");
 });
 
-test("a non-refractive named glass shell is still skipped", () => {
+test("a fully opaque mesh is kept whatever it is called", () => {
+  // This asserted the opposite. The material is named glass_rim, but its
+  // opacity factor is 1 -- the viewer draws it, textures and all -- and it was
+  // being deleted for its name alone. That guess also ate a robot's faceplate
+  // and this converter's own transmission fixture, so it is gone; a mesh is now
+  // dropped only when the viewer itself is not drawing it.
   const info = {
     options: {
       materials: {
@@ -147,7 +152,18 @@ test("a non-refractive named glass shell is still skipped", () => {
     },
   };
   const spec = parseViewerMaterials(info).get("glass_rim");
-  assert.equal(spec.skipMesh, true);
+  assert.equal(spec.skipMesh, false);
+});
+
+test("an invisible mesh is still dropped, name or no name", () => {
+  const invisible = (name) => parseViewerMaterials({
+    options: { materials: { g1: { name, channels: {
+      AlbedoPBR: tex("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", true),
+      Opacity: { enable: true, factor: 0, type: "alphaBlend" },
+    } } } },
+  }).get(name);
+  assert.equal(invisible("glass_rim").skipMesh, true);
+  assert.equal(invisible("something_ordinary").skipMesh, true, "the evidence decides, not the name");
 });
 
 /* --- sided-ness ---------------------------------------------------------- */
