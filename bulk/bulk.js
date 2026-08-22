@@ -3,13 +3,12 @@ import { downloadModelInBackground } from "../lib/run-download.js";
 import { saveZip } from "../lib/save.js";
 import {
   getLang,
-  setLang,
   t,
   createLangSwitch,
   updateLangSwitch,
 } from "../lib/i18n.js";
 import { isDevMode } from "../lib/devlog.js";
-import { getTheme, applyTheme, loadPrefs } from "../lib/settings.js";
+import { getTheme, applyTheme, loadPrefs, savePrefs } from "../lib/settings.js";
 
 const linksEl = document.getElementById("links");
 const btnStart = document.getElementById("btn-start");
@@ -162,7 +161,8 @@ async function init() {
   applyTheme(document.body, theme);
   langHost.appendChild(
     createLangSwitch(lang, async (code) => {
-      lang = await setLang(code);
+      const next = await savePrefs({ lang: code });
+      lang = next.lang;
       applyI18n();
     })
   );

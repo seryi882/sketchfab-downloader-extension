@@ -1,6 +1,5 @@
 import {
   getLang,
-  setLang,
   t,
   createLangSwitch,
   updateLangSwitch,
@@ -523,8 +522,7 @@ async function init() {
       if (switching) return;
       switching = true;
       try {
-        await persistInstant({ lang: code === "ru" ? "ru" : "en" });
-        await setLang(applied.lang);
+        await persistInstant({ lang: code });
       } finally {
         switching = false;
       }

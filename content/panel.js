@@ -367,7 +367,7 @@
         ? next.maxTextureEdge
         : 0;
     pendingTheme = next.theme === "dark" ? "dark" : "light";
-    pendingLang = next.lang === "ru" ? "ru" : "en";
+    pendingLang = next.lang === "ru" || next.lang === "zh" ? next.lang : "en";
     lang = pendingLang;
     const root = document.getElementById("sf-dl-root");
     if (root && settingsApi.applyTheme) settingsApi.applyTheme(root, next.theme);
@@ -779,6 +779,7 @@
 
   function applyPanelI18n(root) {
     if (!root) return;
+    root.setAttribute("lang", lang);
     const title = root.querySelector("#sf-dl-title-text");
     const meta = root.querySelector("#sf-dl-meta");
     const status = root.querySelector("#sf-dl-status");
@@ -797,7 +798,7 @@
     if (
       status &&
       (status.dataset.i18nReady === "1" ||
-        /^(Ready\.|Готово\.)$/.test((status.textContent || "").trim()))
+        /^(Ready\.|Готово\.|准备就绪。)$/.test((status.textContent || "").trim()))
     ) {
       status.textContent = tt("panelReady");
       status.dataset.i18nReady = "1";
@@ -864,11 +865,15 @@
   }
 
   async function switchLang(code) {
-    lang = code === "ru" ? "ru" : "en";
+    lang = code === "ru" || code === "zh" ? code : "en";
     pendingLang = lang;
-    if (i18n && i18n.setLang) await i18n.setLang(lang);
     if (settingsApi && settingsApi.savePrefs) {
-      await settingsApi.savePrefs({ lang });
+      const next = await settingsApi.savePrefs({ lang });
+      lang = next.lang;
+      pendingLang = lang;
+    } else if (i18n && i18n.setLang) {
+      lang = await i18n.setLang(lang);
+      pendingLang = lang;
     }
     applyPanelI18n(document.getElementById("sf-dl-root"));
   }
@@ -1307,7 +1312,7 @@
       if (area !== "local") return;
       if (changes.sf_lang) {
         const v = changes.sf_lang.newValue;
-        if ((v === "en" || v === "ru") && v !== lang) {
+        if ((v === "en" || v === "ru" || v === "zh") && v !== lang) {
           lang = v;
           applyPanelI18n(document.getElementById("sf-dl-root"));
         }
@@ -1325,7 +1330,7 @@
             ? p.maxTextureEdge
             : 0;
         pendingTheme = p.theme === "dark" ? "dark" : "light";
-        pendingLang = p.lang === "ru" ? "ru" : "en";
+        pendingLang = p.lang === "ru" || p.lang === "zh" ? p.lang : "en";
         lang = pendingLang;
         devMode = p.devMode === true;
         const dirty = isSettingsDirty();

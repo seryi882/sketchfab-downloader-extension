@@ -2,13 +2,13 @@
 
 **v1.0**
 
-**Language / Язык:** **English** | [Русский](README.ru.md)
+**Language / Язык / 语言：** **English** | [Русский](README.ru.md) | [简体中文](README.zh-CN.md)
 
 Chrome (Manifest V3) extension that downloads **public** Sketchfab 3D models as a **glTF (`.glb`) ZIP**. No Sketchfab account, login, or API token.
 
 Works on models that have no official Download button.
 
-UI: **English** and **Russian**. Light and dark themes.
+UI: **English**, **Russian**, and **Simplified Chinese**. Light and dark themes.
 
 Repository: https://github.com/seryi882/sketchfab-downloader-extension
 
@@ -70,7 +70,7 @@ In Blender: **File → Import → glTF 2.0** → open the `.glb`. Press **Z → 
 | Download textures | Off | After **Apply settings**. ZIP name then ends with `-textures` |
 | Developer mode | Off | After **Apply settings**. Extra log; packs `download-log.txt` |
 | Theme | Light | Immediately |
-| Language | Browser (EN / RU) | Immediately |
+| Language | Browser (EN / RU / ZH) | Immediately |
 | Archive | Full | Immediately. **GLB only** keeps `.glb`, `README.txt`, `info.json` |
 | Texture size | Original | Immediately. Original = largest map. **≤ 2K / ≤ 4K** only if you pick them |
 
