@@ -867,9 +867,13 @@
   async function switchLang(code) {
     lang = code === "ru" || code === "zh" ? code : "en";
     pendingLang = lang;
-    if (i18n && i18n.setLang) await i18n.setLang(lang);
     if (settingsApi && settingsApi.savePrefs) {
-      await settingsApi.savePrefs({ lang });
+      const next = await settingsApi.savePrefs({ lang });
+      lang = next.lang;
+      pendingLang = lang;
+    } else if (i18n && i18n.setLang) {
+      lang = await i18n.setLang(lang);
+      pendingLang = lang;
     }
     applyPanelI18n(document.getElementById("sf-dl-root"));
   }

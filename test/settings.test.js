@@ -4,6 +4,7 @@ import {
   normalizePrefs,
   languageFromLocale,
   loadPrefs,
+  savePrefs,
   prefsFromUi,
   jobFlagsFromPrefs,
 } from "../lib/settings.js";
@@ -47,6 +48,39 @@ test("first-run preferences use the browser UI language", async () => {
   };
   try {
     assert.equal((await loadPrefs()).lang, "zh");
+  } finally {
+    if (previousChrome === undefined) delete globalThis.chrome;
+    else globalThis.chrome = previousChrome;
+  }
+});
+
+test("savePrefs persists language in canonical and legacy storage", async () => {
+  const previousChrome = globalThis.chrome;
+  let written = null;
+  globalThis.chrome = {
+    storage: {
+      local: {
+        get: async () => ({
+          sf_prefs: {
+            textures: false,
+            theme: "light",
+            lang: "en",
+            devMode: false,
+            packMode: "full",
+            maxTextureEdge: 0,
+          },
+        }),
+        set: async (value) => {
+          written = value;
+        },
+      },
+    },
+  };
+  try {
+    const next = await savePrefs({ lang: "zh" });
+    assert.equal(next.lang, "zh");
+    assert.equal(written.sf_prefs.lang, "zh");
+    assert.equal(written.sf_lang, "zh");
   } finally {
     if (previousChrome === undefined) delete globalThis.chrome;
     else globalThis.chrome = previousChrome;
