@@ -1,0 +1,10 @@
+{
+  "appName": {
+    "message": "Sketchfab Public Downloader",
+    "description": "Extension name and toolbar title"
+  },
+  "appDescription": {
+    "message": "Download public Sketchfab models as glTF (GLB) ZIP files, with optional textures, bulk downloads, and automatic key updates.",
+    "description": "Extension description"
+  }
+}
